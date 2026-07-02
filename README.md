@@ -411,6 +411,13 @@ def train_step(self):
 
 **Gradient clipping** (`max_norm=10.0`) prevents exploding gradients — particularly important when PER produces highly variable loss magnitudes due to priority weighting.
 
+### Implemented extensions: Dueling DQN and n-step returns
+
+Two further improvements are implemented and available for **every** agent variant:
+
+- **Dueling DQN** (`--dueling`) — the Q-head is split into separate value and advantage streams combined as `Q = V + A − mean(A)` (Wang et al., 2016), giving more stable value estimation in navigation tasks with many similar-value states. See `DuelingDQNNavigator` in `models/dqn_network.py`.
+- **n-step returns** (`--n-step N`, default 3) — the replay path accumulates the discounted n-step reward `Σ γ^k r_k` before inserting a transition, and bootstraps with `γ^n`; `--n-step 1` recovers standard one-step TD. Partial windows at episode end are flushed with their true horizon, and truncated (time-limit) episodes still bootstrap.
+
 ---
 
 ## Network Architecture
@@ -500,9 +507,11 @@ Active migration to NVIDIA Isaac Sim for:
 | Double DQN + PER combined | ✅ Complete |
 | Discrete action space | ✅ Complete |
 | Egocentric occupancy grid observation | ✅ Complete |
+| Dueling DQN heads (`--dueling`) | ✅ Complete |
+| n-step returns (`--n-step`, default 3) | ✅ Complete |
+| Quantitative benchmarking (success rate, reward curves — `benchmark.py`) | ✅ Complete |
 | Isaac Sim environment integration | 🔄 In Progress |
 | Continuous action space (binned) | 🔄 In Progress |
-| Quantitative benchmarking (success rate, reward curves) | ⏳ Pending |
 | Sim-to-real transfer evaluation | ⏳ Pending |
 
 ---
@@ -511,8 +520,6 @@ Active migration to NVIDIA Isaac Sim for:
 
 - **Isaac Sim full integration** — replace symbolic grid with RGB-D observations, add physics-accurate robot dynamics
 - **SAC / DDPG for continuous control** — replace discretized continuous actions with a proper actor-critic method for smoother navigation in Isaac Sim
-- **Dueling DQN** — separate value and advantage streams for more stable Q-value estimation in navigation tasks with many similar-value states
-- **Multi-step returns (n-step TD)** — reduce bias in sparse-reward environments by propagating rewards over n steps instead of 1
 - **Curriculum learning** — start with simple maps, progressively increase obstacle density and map size as the agent improves
 
 ---
@@ -570,7 +577,7 @@ python benchmark.py \
 ```
 Autonomous-Navigation-DQN/
 ├── agents/
-│   ├── dqn.py              # Vanilla DQN
+│   ├── dqn.py              # Vanilla DQN (+ shared agent machinery, n-step returns)
 │   ├── double_dqn.py       # Double DQN
 │   └── double_dqn_per.py   # Double DQN + PER (full agent)
 ├── memory/
@@ -578,13 +585,13 @@ Autonomous-Navigation-DQN/
 │   ├── sum_tree.py         # Sum-tree data structure
 │   └── per_buffer.py       # Prioritized Experience Replay buffer
 ├── models/
-│   └── dqn_network.py      # CNN + MLP Q-network
+│   └── dqn_network.py      # CNN + MLP Q-network (+ Dueling variant)
 ├── envs/
-│   ├── grid_world.py       # Custom grid world environment
-│   └── isaac_sim.py        # Isaac Sim interface (in progress)
+│   └── grid_world.py       # Custom grid world environment
+│                           # (Isaac Sim interface: in progress, not yet in repo)
 ├── utils/
-│   ├── schedules.py        # ε-greedy + β annealing schedules
-│   └── visualize.py        # Q-value landscape, reward curves
+│   ├── schedules.py        # ε-greedy + β annealing schedules (LinearSchedule)
+│   └── visualize.py        # Q-value landscape, reward curves, grid rendering
 ├── train.py                # Training entry point
 ├── evaluate.py             # Evaluation + rendering
 ├── benchmark.py            # Multi-agent comparison
